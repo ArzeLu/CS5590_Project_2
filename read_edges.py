@@ -9,8 +9,6 @@ def graph_from_edges():
     
     for edge in edges:
         edge = edge.split(" ")
-        a = int(edge[0])
-        b = int(edge[1])
-        g.add_edge(a, b)
-        
+        g.add_edge(int(edge[0]), int(edge[1]))
+
     return g
