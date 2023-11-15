@@ -2,8 +2,8 @@
 
 import networkx as nx
 
-def graph_from_edges():    
-    file = open("assets/facebook_combined.txt", "r")
+def graph_from_edges(file_name):   
+    file = open(f"assets/{file_name}", "r")
     edges = file.readlines()
     g = nx.Graph()
     
