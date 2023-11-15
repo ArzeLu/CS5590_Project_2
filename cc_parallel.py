@@ -24,10 +24,11 @@ def generate(file_name):
     cc = []  # closeness centrality of all vertices
     times = []  # runtime of each vertex
 
+    top_five = []
+
     sample_size = 5
-    top_five = [(-1, -1), (-1, -1), (-1, -1), (-1, -1), (-1, -1)]
+
     for i in range(starting_index, starting_index + sample_size):
-        print(f'Processor {r} Processing vertex {i}')
         sum_of_shortest_paths = 0
         start_time = time.time()
 
@@ -35,12 +36,16 @@ def generate(file_name):
             if i == j:
                 continue
             sum_of_shortest_paths += (len(nx.dijkstra_path(g, i, j)) - 1)
-        closeness = 1 / (sum_of_shortest_paths / g.number_of_nodes())
+        average_shortest_path = sum_of_shortest_paths / (g.number_of_nodes() - 1)
+        closeness = 1 / average_shortest_path
         cc.append((i, closeness))
-        for j in range(5):
-            if top_five[j][1] < closeness:
-                top_five[j] = (i, closeness)
-                break
+        if len(top_five) < 5:
+            top_five.append((i, closeness))
+        else:
+            for j in top_five:
+                if closeness > j[1]:
+                    top_five = list(map(lambda x: x.replace(j, (i, closeness))))
+                    break
         times.append(time.time() - start_time)
     '''
     print("----Closeness Centrality Parallel----")
@@ -48,20 +53,22 @@ def generate(file_name):
 
     for t in times:
         print(t)
-
-    print("\nAverage time:", (sum(times) / sample_size))
     '''
 
     if r != 0:
         comm.send(cc, dest=0, tag=1)
         comm.send(top_five, dest=0, tag=2)
+        comm.send(times, dest=0, tag=3)
     else:
         for i in range(1, p):
             data = comm.recv(source=i, tag=1)
             five = comm.recv(source=i, tag=2)
+            t = comm.recv(source=i, tag=3)
             cc.extend(data)
             top_five.extend(five)
-            top_five.sort()
+            times.extend(t)
+        top_five.sort(reverse=True)
+        print("\nAverage time:", (sum(times) / (sample_size * p)))
         f = open('output.txt', 'w')
         f.write('---Top Five---\n')
         for i in top_five[:5]:

@@ -21,7 +21,7 @@ def generate(file_name):
                 continue
             total_length += (len(nx.dijkstra_path(g, i, j)) - 1)
 
-        cc.append((i, 1 / (total_length / g.number_of_nodes())))
+        cc.append((i, 1 / (total_length / (g.number_of_nodes() - 1))))
         times.append(time.time() - start_time)
 
     print("----Closeness Centrality Serial----")
