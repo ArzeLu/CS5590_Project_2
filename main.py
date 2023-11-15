@@ -2,7 +2,7 @@ import cc_parallel as ccp
 import cc_serial as ccs
 
 def main():
-    file_name = "sample.txt"
+    file_name = "facebook_combined.txt"
     ccs_result = ccs.generate(file_name)
     
     for x in ccs_result:
