@@ -1,190 +1,88 @@
 from mpi4py import MPI
+import networkx as nx
 import numpy as np
-import read_edges as re
-def load_graph_data(file_path):
-    g = re.graph_from_edges(file_path) # get the graph
-    print(g)
-    pass
-load_graph_data('sample.txt')
 
-def dijkstra(graph, start):
-    n = len(graph)
-    visited = [False] * n
-    distance = [float('inf')] * n
-    distance[start] = 0
+def read_graph(filename):
+    G = nx.Graph()
+    with open(filename, 'r') as file:
+        for line in file:
+            node_a, node_b = map(int, line.split())
+            G.add_edge(node_a, node_b)
+    return G
 
-    for _ in range(n):
-        u = min_distance(distance, visited)
-        visited[u] = True
+def bfs(graph, source):
+    visited = set()
+    levels = {source: 0}
+    queue = [source]
 
-        for v in range(n):
-            if not visited[v] and graph[u][v] and distance[u] + graph[u][v] < distance[v]:
-                distance[v] = distance[u] + graph[u][v]
-    print(distance)
-    return distance
+    while queue:
+        current_node = queue.pop(0)
+        for neighbor in graph.neighbors(current_node):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+                levels[neighbor] = levels[current_node] + 1
 
-def min_distance(distance, visited):
-    min_dist = float('inf')
-    min_index = -1
+    return levels
 
-    for i, dist in enumerate(distance):
-        if not visited[i] and dist < min_dist:
-            min_dist = dist
-            min_index = i
+def calculate_partial_betweenness_centrality(graph, nodes):
+    partial_betweenness = np.zeros(graph.number_of_nodes())
 
-    return min_index
+    for source in nodes:
+        levels = bfs(graph, source)
 
-def calculate_shortest_paths(graph):
-    n = len(graph)
-    all_shortest_paths = []
+        shortest_paths = {node: 0 for node in graph.nodes()}
+        num_paths = {node: 0 for node in graph.nodes()}
+        stack = []
 
-    for start_node in range(n):
-        shortest_paths = dijkstra(graph, start_node)
-        all_shortest_paths.append(shortest_paths)
+        for node in sorted(graph.nodes(), key=lambda x: levels[x], reverse=True):
+            if node == source:
+                num_paths[node] = 1
+                continue
 
-    return all_shortest_paths
+            for neighbor in graph.neighbors(node):
+                if levels[neighbor] == levels[node] + 1:
+                    num_paths[node] += num_paths[neighbor]
+                    shortest_paths[node] += num_paths[neighbor] + shortest_paths[neighbor]
 
-def calculate_closeness_centrality(graph, node, distance_matrix):
-    shortest_paths = distance_matrix[node]
-    closeness_centrality = 1 / np.mean(shortest_paths)
-    return closeness_centrality
+            if node != source:
+                partial_betweenness[node] += shortest_paths[node] / 2.0
 
-def calculate_betweenness_centrality(graph, node, distance_matrix):
-    n = len(graph)
-    betweenness_centrality = 0
+    return partial_betweenness
 
-    for i in range(n):
-        if i != node:
-            for j in range(n):
-                if j != i and j != node:
-                    if distance_matrix[i][j] != 0:
-                        paths_ij = find_shortest_paths(graph, i, j, distance_matrix)
-                        paths_i_node = find_shortest_paths(graph, i, node, distance_matrix)
-                        paths_j_node = find_shortest_paths(graph, j, node, distance_matrix)
-
-                        betweenness_centrality += (len(paths_i_node) * len(paths_j_node)) / len(paths_ij)
-
-    return betweenness_centrality
-
-
-from collections import defaultdict
-
-
-def find_shortest_paths(graph, start, end, distance_matrix):
-    def backtrack_paths(current, path):
-        if current == start:
-            paths.append(path[::-1])
-            return
-        for predecessor in predecessors[current]:
-            backtrack_paths(predecessor, path + [predecessor])
-
-    n = len(graph)
-    visited = [False] * n
-    distance = [float('inf')] * n
-    distance[start] = 0
-    predecessors = defaultdict(list)
-    paths = []
-
-    while True:
-        u = min_distance(distance, visited)
-        if u == -1 or u == end:
-            break
-
-        visited[u] = True
-
-        for v in range(n):
-            if not visited[v] and graph[u][v] and distance[u] + graph[u][v] < distance[v]:
-                distance[v] = distance[u] + graph[u][v]
-                predecessors[v] = [u]
-            elif not visited[v] and graph[u][v] and distance[u] + graph[u][v] == distance[v]:
-                predecessors[v].append(u)
-
-    if distance[end] == float('inf'):
-        # No path exists
-        return []
-
-    # Backtrack to find all shortest paths
-    backtrack_paths(end, [end])
-
-    return paths
-
-
-# Example usage
-if __name__ == "__main__":
-    # Example graph represented as an adjacency matrix
-    example_graph = [
-        [0, 1, 1, 0, 0],
-        [1, 0, 1, 1, 0],
-        [1, 1, 0, 1, 1],
-        [0, 1, 1, 0, 1],
-        [0, 0, 1, 1, 0]
-    ]
-
-    start_node = 0
-    end_node = 4
-
-    # Assuming distance_matrix is already computed using Dijkstra's algorithm
-    distance_matrix = calculate_shortest_paths(example_graph)
-
-    # Find all shortest paths between start_node and end_node
-    shortest_paths = find_shortest_paths(example_graph, start_node, end_node, distance_matrix)
-
-    print(f"All Shortest Paths from {start_node} to {end_node}:")
-    for path in shortest_paths:
-        print(path)
-
-
-def calculate_centrality(graph, n):
+def main():
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    nodes_per_processor = n // size
-    start_node = rank * nodes_per_processor
-    end_node = (rank + 1) * nodes_per_processor
-
-    # Calculate all-pairs shortest paths using Dijkstra's algorithm
-    distance_matrix = calculate_shortest_paths(graph)
-
-    # Calculate centrality for each node in the assigned range
-    closeness_centrality_values = {}
-    betweenness_centrality_values = {}
-
-    for node in range(start_node, end_node):
-        closeness_centrality_values[node] = calculate_closeness_centrality(graph, node, distance_matrix)
-        betweenness_centrality_values[node] = calculate_betweenness_centrality(graph, node, distance_matrix)
-
-    # Gather centrality values from all processors to the root (processor 0)
-    all_closeness_centrality_values = comm.gather(closeness_centrality_values, root=0)
-    all_betweenness_centrality_values = comm.gather(betweenness_centrality_values, root=0)
-
-    # Processor 0 combines and prints the results
     if rank == 0:
-        combined_closeness_centrality = {node: value for centrality_values in all_closeness_centrality_values for node, value in centrality_values.items()}
-        combined_betweenness_centrality = {node: value for centrality_values in all_betweenness_centrality_values for node, value in centrality_values.items()}
+        # Read the graph from the input file
+        graph_file = "assets/facebook_combined.txt"
+        graph = read_graph(graph_file)
+    else:
+        graph = None
 
-        print("Closeness Centrality:")
-        print(combined_closeness_centrality)
+    # Broadcast the graph to all processes
+    graph = comm.bcast(graph, root=0)
 
-        print("Betweenness Centrality:")
-        print(combined_betweenness_centrality)
+    # Split nodes among processes
+    nodes_per_process = graph.number_of_nodes() // size
+    start_node = rank * nodes_per_process
+    end_node = (rank + 1) * nodes_per_process if rank != size - 1 else graph.number_of_nodes()
 
-'''
-# Example usage
+    # Calculate partial betweenness centrality
+    partial_betweenness = calculate_partial_betweenness_centrality(graph, range(start_node, end_node))
+
+    # Gather partial results to the root process
+    all_partial_betweenness = comm.gather(partial_betweenness, root=0)
+
+    if rank == 0:
+        # Aggregate partial results to get the final betweenness centrality
+        betweenness_centrality = np.sum(all_partial_betweenness, axis=0)
+        normalization_factor = 1.0 / ((graph.number_of_nodes() - 1) * (graph.number_of_nodes() - 2))
+        betweenness_centrality *= normalization_factor
+
+        print("Betweenness Centrality:", betweenness_centrality)
+
 if __name__ == "__main__":
-    # Specify the path to the file containing the value of n
-    n_file_path = "path/to/n/file.txt"
-
-    # Load n from the file
-    with open(n_file_path, "r") as file:
-        n = int(file.read().strip())
-
-    # Specify the path to the file containing the graph data
-    graph_data_file_path = "path/to/graph/data/file.txt"
-
-    # Load your graph data from the social networks datasets
-    graph_data = load_graph_data(graph_data_file_path)
-
-    # Calculate centrality in parallel
-    calculate_centrality(graph_data, n)
-'''
+    main()
