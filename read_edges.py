@@ -10,5 +10,6 @@ def graph_from_edges(file_name):
     for edge in edges:
         edge = edge.split(" ")
         g.add_edge(int(edge[0]), int(edge[1]))
-
+    
+    file.close()
     return g
