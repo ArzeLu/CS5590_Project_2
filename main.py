@@ -1,6 +1,4 @@
 import time
-
-import test
 import cc_parallel as ccp
 import cc_serial as ccs
 from mpi4py import MPI
