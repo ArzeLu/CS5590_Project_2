@@ -2,14 +2,14 @@
 
 import networkx as nx
 
-def graph_from_edges(file_name):   
-    file = open(f"assets/{file_name}", "r")
-    edges = file.readlines()
+def get_graph(file_name):   
+    f = open(f"assets/{file_name}", "r")
+    edges = f.readlines()
     g = nx.Graph()
     
     for edge in edges:
         edge = edge.split(" ")
         g.add_edge(int(edge[0]), int(edge[1]))
     
-    file.close()
+    f.close()
     return g

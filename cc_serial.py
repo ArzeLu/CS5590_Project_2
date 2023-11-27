@@ -3,7 +3,7 @@ import read_edges as re
 import time
 
 def generate(file_name):
-    g = re.graph_from_edges(file_name)  # get the graph
+    g = re.get_graph(file_name)  # get the graph
 
     cc = []  # closeness centrality of all vertices
     times = []  # runtime of each vertex

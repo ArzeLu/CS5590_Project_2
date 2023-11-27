@@ -1,88 +1,89 @@
 from mpi4py import MPI
+import read_edges as re
 import networkx as nx
-import numpy as np
+import time
+import bfs
 
-def read_graph(filename):
-    G = nx.Graph()
-    with open(filename, 'r') as file:
-        for line in file:
-            node_a, node_b = map(int, line.split())
-            G.add_edge(node_a, node_b)
-    return G
+#set up MPI
+comm = MPI.COMM_WORLD
+p = comm.Get_size()
+r = comm.Get_rank()
 
-def bfs(graph, source):
-    visited = set()
-    levels = {source: 0}
-    queue = [source]
-
-    while queue:
-        current_node = queue.pop(0)
-        for neighbor in graph.neighbors(current_node):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(neighbor)
-                levels[neighbor] = levels[current_node] + 1
-
-    return levels
-
-def calculate_partial_betweenness_centrality(graph, nodes):
-    partial_betweenness = np.zeros(graph.number_of_nodes())
-
-    for source in nodes:
-        levels = bfs(graph, source)
-
-        shortest_paths = {node: 0 for node in graph.nodes()}
-        num_paths = {node: 0 for node in graph.nodes()}
-        stack = []
-
-        for node in sorted(graph.nodes(), key=lambda x: levels[x], reverse=True):
-            if node == source:
-                num_paths[node] = 1
-                continue
-
-            for neighbor in graph.neighbors(node):
-                if levels[neighbor] == levels[node] + 1:
-                    num_paths[node] += num_paths[neighbor]
-                    shortest_paths[node] += num_paths[neighbor] + shortest_paths[neighbor]
-
-            if node != source:
-                partial_betweenness[node] += shortest_paths[node] / 2.0
-
-    return partial_betweenness
-
-def main():
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
-    if rank == 0:
-        # Read the graph from the input file
-        graph_file = "assets/facebook_combined.txt"
-        graph = read_graph(graph_file)
+def bc_bfs(g):
+    n = g.number_of_nodes()
+    
+    # Divide the workload for each processor
+    sample_size = n
+    start = int((r * sample_size) / p)
+    end = int((((r + 1) * sample_size) / p))
+    
+    asp = [] # all shortest paths (node: path length)
+    asp_inv = [] # all shortest paths inverse (path length: node)
+    
+    # With BFS, calculate shortest paths of all nodes.
+    for i in range(start, end):
+        sp = bfs.get_bfs(g, i) # shortest paths (node: shortest path to source i)
+        asp.append(sp[0])
+        asp_inv.append(sp[1])
+        
+    
+    # Send every asp to processor 0
+    if r != 0:
+        comm.send(obj = asp, dest = 0, tag = 1)
+        comm.send(obj = asp_inv, dest = 0, tag = 2)
     else:
-        graph = None
-
-    # Broadcast the graph to all processes
-    graph = comm.bcast(graph, root=0)
-
-    # Split nodes among processes
-    nodes_per_process = graph.number_of_nodes() // size
-    start_node = rank * nodes_per_process
-    end_node = (rank + 1) * nodes_per_process if rank != size - 1 else graph.number_of_nodes()
-
-    # Calculate partial betweenness centrality
-    partial_betweenness = calculate_partial_betweenness_centrality(graph, range(start_node, end_node))
-
-    # Gather partial results to the root process
-    all_partial_betweenness = comm.gather(partial_betweenness, root=0)
-
-    if rank == 0:
-        # Aggregate partial results to get the final betweenness centrality
-        betweenness_centrality = np.sum(all_partial_betweenness, axis=0)
-        normalization_factor = 1.0 / ((graph.number_of_nodes() - 1) * (graph.number_of_nodes() - 2))
-        betweenness_centrality *= normalization_factor
-
-        print("Betweenness Centrality:", betweenness_centrality)
-
-if __name__ == "__main__":
-    main()
+        for pi in range(1, p):
+            asp += comm.recv(source = pi, tag = 1)
+            asp_inv += comm.recv(source = pi, tag = 2)
+        
+    asp = comm.bcast(obj = asp, root = 0)
+    asp_inv = comm.bcast(obj = asp_inv, root = 0)
+        
+    betweenness_centrality = [0] * (end - start)
+    normalizer = 2 / ((n - 1) * (n - 2))
+    # Algo for extracting betweenness from BFS
+    # *Ref #
+    for k in range(start, end):  
+        for i in range(n):
+            if i == k:
+                continue
+            if asp_inv[i].get(1) == 1:
+                continue
+                
+            sp_ki = asp[k].get(i) # sp of (k, i)    
+            
+            # Don't go through 0 to n because duplicate paths
+            for j in range(i + 1, n):
+                if j == k:
+                    continue
+                    
+                sp_kj = asp[k].get(j) # sp of (k, j)
+                sp_ij = asp[i].get(j) # sp of (i, j)
+                
+                # *Ref #
+                if sp_ij < (sp_ki + sp_kj):
+                    continue
+                
+                sps_through_k = 0
+                sps = 0
+                
+                # sps of (i, j) through k
+                for x in asp_inv[k][sp_kj - 1]:
+                    if asp[x][j] == 1:
+                        sps_through_k += 1
+                        
+                # sps of (i, j)
+                # *Ref #
+                for x in asp_inv[i][sp_ij - 1]:
+                    if asp[x][j] == 1:
+                        sps += 1
+                
+                #print(f"({k}, {i}, {j}) => spstk: {sps_through_k}, sps: {sps}")
+                betweenness_centrality[k] += (sps_through_k / sps)
+                
+        betweenness_centrality[k] *= normalizer
+        
+    for i in range(n):
+        print(f"{i}, {betweenness_centrality[i]}")
+    
+    return betweenness_centrality

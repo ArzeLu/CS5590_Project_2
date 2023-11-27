@@ -1,17 +1,21 @@
 import time
-import cc_parallel as ccp
-import cc_serial as ccs
+import cc_parallel as cp
+import cc_serial as cs
+import bc_p as bp
+import read_edges as re
 from mpi4py import MPI
 
+import bc_test as bt
+
 def main():
-    file_name = "facebook_combined.txt"
+    file_name = "sample.txt"
+    g = re.get_graph(file_name)   
     
-    #ccs_result = ccs.generate(file_name)
-    #ccp_result = ccp.generate(file_name)
-
-    ccp.floyd_warshall(file_name)
-
-    #test.test()
+    #cp.floyd_warshall(g)
+    #startTime = time.time()
+    #bp.bc_bfs(g)
+    #print("\n\n",time.time() - startTime)
     
+    bt.betweenness_centrality(g)
 if __name__ == "__main__":
     main()
