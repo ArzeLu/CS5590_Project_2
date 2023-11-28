@@ -10,8 +10,14 @@ comm = MPI.COMM_WORLD
 p = comm.Get_size()
 r = comm.Get_rank()
     
-#closeness centrality with floyd warshall
-def floyd_warshall(g):
+#Closeness centrality with floyd warshall
+def cc_fw(g):
+    # measures total runtime
+    if r == 0:
+        timer_1 = time.time() 
+        print("\n==================Closeness Centrality with Floyd-Warshall===================")
+        print("===============================================================================")
+    
     n = g.number_of_nodes()
 
     #Divide the workload for each processor
@@ -39,7 +45,7 @@ def floyd_warshall(g):
     #Start runtime measurement. Only measures the main floyd-warshall part
     if r == 0:
         print(f"\nProcessed {sample_size} nodes; {int(sample_size / n * 100)}% of total {n} nodes")
-        start_time = time.time()
+        timer_2 = time.time()
         
     #floyd-warshall matrix
     #filling weights (1) for each edge, and fill zeros for diagonal
@@ -75,55 +81,52 @@ def floyd_warshall(g):
             for j in range(n):
                 dist[i][j] = min(dist[i][j], (dist[i][k] + impact_row[j]))
     
-    #End runtime measurement
+    #End algo runtime measurement
     if r == 0:                    
-        runtime = time.time() - start_time
-        print(f"Floyd-Warshall Runtime: {runtime:.4f} seconds")
+        algo_runtime = time.time() - timer_2
         
     #Path lengths logic in README
-    path_lengths = [0] * (end - start)
+    closeness_centrality = {x: 0 for x in range(start, end)}
     
     for i in range(start, end):
         for j in range(n):
             if dist[i][j] != math.inf:
-                path_lengths[i] += dist[i][j]
+                closeness_centrality[i] += dist[i][j]
+        closeness_centrality[i] = int(((n - 1) / closeness_centrality[i]) * 1000) / 1000
+                
             
-    #Send path_lengths data to p_0
+    #Send closeness_centrality data to p_0
     if r != 0:
-        comm.send(obj = path_lengths, dest = 0, tag = 3)
+        comm.send(obj = closeness_centrality, dest = 0, tag = 3)
     else:
         for pi in range(1, p):
-            path_lengths += comm.recv(source = pi, tag = 3)
-    
-    cc = {} #Store as dictionary to keep node data
-    
-    if r == 0:
-        #Convert path_lengths to normalized closeness centrality (Keeping only three decimals)
-        for i in range(n):
-            if path_lengths[i] == 0:
-                cc[i] = 0
-            else:
-                cc[i] = int(((n - 1) / path_lengths[i]) * 1000) / 1000
-        
-        #Sorting cc dictionary
-        cc = dict(sorted(cc.items(), key = lambda item: item[1], reverse = True))
+            closeness_centrality.update(comm.recv(source = pi, tag = 3))
+      
+        closeness_centrality = dict(sorted(closeness_centrality.items(), key = lambda x: x[1], reverse = True))
    
         #Get top 5
         top5 = [[] for _ in range(5)]
         cc_set = set()
-        for x, y in cc.items():
+        for x, y in closeness_centrality.items():
             cc_set.add(y)
             if len(cc_set) == 6:
                 break
             top5[len(cc_set) - 1].append((x, y))
         
-        print("\n==========Top 5:===========")
+        print("\n>>>>> Top 5: <<<<<")
         for i in range(len(top5)):
             print(f"#{i}:")
             for y in top5[i]:
                 print(f"    {y[0]}, {y[1]}")
-                
-    return cc    
+    
+        total_time = time.time() - timer_1    
+        print()
+        print(f"Total runtime: {total_time:.4f} seconds")
+        print(f"CC Floyd-Warshall Algo Runtime: {algo_runtime:.4f} seconds\n")
+        print("===============================================================================")
+        print("===============================================================================\n")
+        
+    return closeness_centrality    
     
 #closeness centrality with bfs
 def breadth_first_search():

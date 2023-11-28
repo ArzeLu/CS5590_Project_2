@@ -10,6 +10,12 @@ p = comm.Get_size()
 r = comm.Get_rank()
 
 def bc_bfs(g):
+    # measures total runtime
+    if r == 0:
+        timer_1 = time.time() 
+        print("\n======================Betweenness Centrality with BFS========================")
+        print("===============================================================================")
+        
     n = g.number_of_nodes()
     
     # Divide the workload for each processor
@@ -39,8 +45,14 @@ def bc_bfs(g):
     asp = comm.bcast(obj = asp, root = 0)
     asp_inv = comm.bcast(obj = asp_inv, root = 0)
         
-    betweenness_centrality = [0] * (end - start)
+    betweenness_centrality = {x: 0 for x in range(start, end)}
     normalizer = 2 / ((n - 1) * (n - 2))
+    
+    #Start runtime measurement. Only measures the main floyd-warshall part
+    if r == 0:
+        print(f"\nProcessed {sample_size} nodes; {int(sample_size / n * 100)}% of total {n} nodes")
+        timer_2 = time.time()
+        
     # Algo for extracting betweenness from BFS
     # *Ref #
     for k in range(start, end):  
@@ -83,7 +95,39 @@ def bc_bfs(g):
                 
         betweenness_centrality[k] *= normalizer
         
-    for i in range(n):
-        print(f"{i}, {betweenness_centrality[i]}")
+    #End algo runtime measurement
+    if r == 0:                    
+        algo_runtime = time.time() - timer_2
     
+    if r != 0:
+        comm.send(obj = betweenness_centrality, dest = 0, tag = 3)
+    else:
+        for pi in range(1, p):
+            betweenness_centrality.update(comm.recv(source = pi, tag = 3))
+            
+        betweenness_centrality = dict(sorted(betweenness_centrality.items(), key = lambda x: x[1], reverse = True)) #sort dictionary 
+        
+        # Get top 5
+        top5 = [[] for _ in range(5)]
+        bc_set = set()
+        for x, y in betweenness_centrality.items():
+            bc_set.add(y)
+            if len(bc_set) == 6:
+                break
+            top5[len(bc_set) - 1].append((x, y))
+        
+        print("\n>>>>> Top 5: <<<<<")
+        for i in range(len(top5)):
+            print(f"#{i}:")
+            for y in top5[i]:
+                print(f"    {y[0]}, {y[1]}")
+        
+        if r == 0:
+            total_time = time.time() - timer_1    
+            print()
+            print(f"Total runtime: {total_time:.4f} seconds")
+            print(f"BC BFS Algo Runtime: {algo_runtime:.4f} seconds\n")
+            print("===============================================================================")
+            print("===============================================================================\n")    
+        
     return betweenness_centrality
