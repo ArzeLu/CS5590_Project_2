@@ -9,7 +9,7 @@ comm = MPI.COMM_WORLD
 p = comm.Get_size()
 r = comm.Get_rank()
 
-def bc_bfs(g):
+def bc_bfs(g, sample_size):
     # measures total runtime
     if r == 0:
         timer_1 = time.time() 
@@ -19,9 +19,9 @@ def bc_bfs(g):
     n = g.number_of_nodes()
     
     # Divide the workload for each processor
-    sample_size = n
-    start = int((r * sample_size) / p)
-    end = int((((r + 1) * sample_size) / p))
+    # Use on essential data 
+    start = int((r * n) / p)
+    end = int((((r + 1) * n) / p))
     
     asp = [] # all shortest paths (node: path length)
     asp_inv = [] # all shortest paths inverse (path length: node)
@@ -47,6 +47,10 @@ def bc_bfs(g):
         
     betweenness_centrality = {x: 0 for x in range(start, end)}
     normalizer = 2 / ((n - 1) * (n - 2))
+    
+    # Use on main algo
+    start = int((r * sample_size) / p)
+    end = int((((r + 1) * sample_size) / p))
     
     #Start runtime measurement. Only measures the main floyd-warshall part
     if r == 0:
@@ -95,7 +99,7 @@ def bc_bfs(g):
                 
         betweenness_centrality[k] *= normalizer
         
-    #End algo runtime measurement
+    # End algo runtime measurement
     if r == 0:                    
         algo_runtime = time.time() - timer_2
     
