@@ -6,7 +6,7 @@ import read_edges as re
 from mpi4py import MPI
 
 def main():
-    file_name = "twitter_combined.txt"
+    file_name = "sample3.txt"
     g = re.get_graph(file_name)  
     n = g.number_of_nodes()
     

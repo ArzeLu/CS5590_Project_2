@@ -44,13 +44,13 @@ def bc_bfs(g, sample_size):
         
     asp = comm.bcast(obj = asp, root = 0)
     asp_inv = comm.bcast(obj = asp_inv, root = 0)
-        
-    betweenness_centrality = {x: 0 for x in range(start, end)}
-    normalizer = 2 / ((n - 1) * (n - 2))
     
     # Use on main algo
     start = int((r * sample_size) / p)
     end = int((((r + 1) * sample_size) / p))
+    
+    betweenness_centrality = {x: 0 for x in range(start, end)}
+    normalizer = 2 / ((n - 1) * (n - 2))
     
     #Start runtime measurement. Only measures the main floyd-warshall part
     if r == 0:
