@@ -2,7 +2,7 @@ import math
 import time
 import networkx as nx
 import read_edges as re
-import bfs
+import helpers
 from mpi4py import MPI
 
 # set up MPI
@@ -91,41 +91,47 @@ def cc_fw(g, sample_size):
             if dist[i][j] != math.inf:
                 closeness_centrality[i] += dist[i][j]
         closeness_centrality[i] = int(((n - 1) / closeness_centrality[i]) * 1000) / 1000
-                
-            
-    # Send closeness_centrality data to p_0
-    if r != 0:
-        comm.send(obj = closeness_centrality, dest = 0, tag = 3)
-    else:
-        for pi in range(1, p):
-            closeness_centrality.update(comm.recv(source = pi, tag = 3))
-      
-        closeness_centrality = dict(sorted(closeness_centrality.items(), key = lambda x: x[1], reverse = True))
-   
-        # Get top 5
-        top5 = [[] for _ in range(5)]
-        cc_set = set()
-        for x, y in closeness_centrality.items():
-            cc_set.add(y)
-            if len(cc_set) == 6:
-                break
-            top5[len(cc_set) - 1].append((x, y))
-        
-        print("\n>>>>> Top 5: <<<<<")
-        for i in range(len(top5)):
-            print(f"#{i}:")
-            for y in top5[i]:
-                print(f"    {y[0]}, {y[1]}")
     
+    helpers.top5_cc(closeness_centrality)
+    
+    if r == 0:
         total_time = time.time() - timer_1    
         print()
         print(f"Total runtime: {total_time:.4f} seconds")
         print(f"CC Floyd-Warshall Algo Runtime: {algo_runtime:.4f} seconds\n")
         print("===============================================================================")
-        print("===============================================================================\n")
-        
-    return closeness_centrality    
+        print("===============================================================================\n")   
     
 # closeness centrality with bfs
-def breadth_first_search():
-    return
+def cc_bfs(g, sample_size):
+    n = g.number_of_nodes()
+    
+    if r == 0:
+        timer_1 = time.time()
+        print("\n==================Closeness Centrality with BFS===================")
+        print("===============================================================================")
+    
+    # Divide up the workload for each processor
+    start = int((r * sample_size) / p)
+    end = int((((r + 1) * sample_size) / p))
+    closeness_centrality = {x: 0 for x in range(start, end)}
+    
+    if r == 0:
+        timer_2 = time.time()
+    for i in range(start, end):
+        sp = helper.bfs_basic(g, i)
+        for a, b in sp.items():
+            closeness_centrality[i] += b
+        closeness_centrality[i] = int(((n - 1) / closeness_centrality[i]) * 1000) / 1000
+    if r == 0:
+        algo_runtime = time.time() - timer_2
+        
+    helper.top5_cc(closeness_centrality)
+    
+    if r == 0:
+        total_time = time.time() - timer_1    
+        print()
+        print(f"Total runtime: {total_time:.4f} seconds")
+        print(f"CC BFS Algo Runtime: {algo_runtime:.4f} seconds\n")
+        print("===============================================================================")
+        print("===============================================================================\n")
