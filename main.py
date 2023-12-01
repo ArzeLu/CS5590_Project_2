@@ -1,14 +1,13 @@
+from mpi4py import MPI
 import sys
 import closeness_centrality_parallel as cp
-import closeness_centrality_serial as cs
 import betweenness_centrality_parallel as bp
-import read_edges as re
-from mpi4py import MPI
+import helpers
 
 def main():
     file_name = sys.argv[2] + ".txt"
     
-    g = re.get_graph(file_name)  
+    g = helpers.get_graph(file_name)  
     n = g.number_of_nodes()
     
     if len(sys.argv) < 2:

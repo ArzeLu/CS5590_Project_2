@@ -1,7 +1,6 @@
 import math
 import time
 import networkx as nx
-import read_edges as re
 import helpers
 from mpi4py import MPI
 
@@ -119,14 +118,14 @@ def cc_bfs(g, sample_size):
     if r == 0:
         timer_2 = time.time()
     for i in range(start, end):
-        sp = helper.bfs_basic(g, i)
+        sp = helpers.bfs_basic(g, i)
         for a, b in sp.items():
             closeness_centrality[i] += b
         closeness_centrality[i] = int(((n - 1) / closeness_centrality[i]) * 1000) / 1000
     if r == 0:
         algo_runtime = time.time() - timer_2
         
-    helper.top5_cc(closeness_centrality)
+    helpers.top5_cc(closeness_centrality)
     
     if r == 0:
         total_time = time.time() - timer_1    
