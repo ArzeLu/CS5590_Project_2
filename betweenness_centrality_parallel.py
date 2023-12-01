@@ -1,6 +1,7 @@
 from mpi4py import MPI
 import networkx as nx
 import time
+import algos
 import helpers
 
 #set up MPI
@@ -16,11 +17,7 @@ def bc_bfs(g, sample_size):
         print("===============================================================================")
     
     # Set up node data
-    # Keeping two dictionaries just in case graph nodes aren't purely sequential
-    n = g.number_of_nodes()
-    nl = list(g.nodes()) # node list
-    nl = {x: nl[x] for x in range(n)} # node list as dictionary (index: node)
-    nl_inv = {y: x for x, y in nl.items()} # inverse node dictionary (node: index)
+    n, nl, nl_inv = helpers.get_node_data(g)
     
     # Divide the workload for each processor
     start = int((r * sample_size) / p)
@@ -30,13 +27,13 @@ def bc_bfs(g, sample_size):
     
     # Start runtime measurement. Only measures the main floyd-warshall part
     if r == 0:
-        print(f"\nProcessed {sample_size} nodes; {int(sample_size / n * 100)}% of total {n} nodes")
+        print(f"\nUsed {p} processor(s). Processed {sample_size} nodes; {int(sample_size / n * 100)}% of total {n} nodes")
         timer_2 = time.time()
     
     # Ulrik Brandes Betweenness Centrality ALgorithm
     for si in range(start, end):
         s = nl.get(si)
-        stack, prev, sp = helpers.bfs_detailed(g, nl, nl_inv, s)              
+        stack, prev, sp = algos.bfs_detailed(g, nl, nl_inv, s)              
         depd = [0] * n
         while stack:
             w = stack.pop()
