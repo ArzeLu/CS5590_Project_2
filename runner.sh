@@ -9,5 +9,5 @@
 #SBATCH --mem=30GB
 #SBATCH -o output/twitter/%x_%a.o
 
-#/apps/anaconda3/envs/arzeEnv/bin/mpirun -n $SLURM_ARRAY_TASK_ID python3 main.py 1 twitter_combined
-python3 main.py 1 twitter_combined
+/apps/anaconda3/envs/arzeEnv/bin/mpirun -n $SLURM_ARRAY_TASK_ID python3 main.py 1 twitter_combined
+##python3 main.py 1 twitter_combined
