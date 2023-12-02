@@ -23,8 +23,8 @@ def main():
         print("Please input a float number instead.")
         sys.exit(1)
     
-    cp.cc_fw(g, int(n * portion))
-    cp.cc_bfs(g, int(n * portion))
+    #cp.cc_fw(g, int(n * portion))
+    #cp.cc_bfs(g, int(n * portion))
     bp.bc_bfs(g, int(n * portion))
 
 if __name__ == "__main__":

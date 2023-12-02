@@ -94,7 +94,7 @@ def top5_bc(data, nl):
         data = dict(sorted(data.items(), key = lambda x: x[1], reverse = True))
         
         for i in range(len(data)):
-            data[i] *= normalizer
+            data[i] = int(data[i] * normalizer * 1000) / 1000
         
         # Get top 5
         top5 = [[] for _ in range(5)]
