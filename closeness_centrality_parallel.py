@@ -47,7 +47,7 @@ def cc_fw(g, sample_size):
     if r == 0:                    
         algo_runtime = time.time() - timer_2
         
-    # Path lengths logic in README
+    # Get path lengths of each row
     closeness_centrality = {x: 0 for x in range(start, end)}
     for ui in range(start, end):
         u = nl.get(ui)
